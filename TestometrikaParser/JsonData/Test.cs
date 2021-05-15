@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Newtonsoft.Json;
 
 namespace TestometrikaParser
 {
     public class Test
     {
-        public string name { get; set; }
-        public string description { get; set; }
-        public Question Questions { get; set; } = new Question();
+        [JsonProperty("name")]
+        public string Name { get; set; }
+        [JsonProperty("description")]
+        public string Description { get; set; }
+        [JsonProperty("questions")]
+        public Questions Questions { get; set; } = new Questions();
     }
 }

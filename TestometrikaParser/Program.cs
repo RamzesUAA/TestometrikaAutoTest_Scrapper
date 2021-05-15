@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -9,6 +10,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using SimpleBrowser.WebDriver;
+using TestometrikaParser.JsonData;
 
 namespace TestometrikaParser
 {
@@ -24,9 +26,15 @@ namespace TestometrikaParser
             Console.OutputEncoding = Encoding.UTF8;
             IWebDriver driver = new ChromeDriver();
             driver.Navigate().GoToUrl("https://testometrika.com/woman/how-much-are-you-in-love/");
+
+            var name = driver.FindElement(By.XPath("//h1[contains(@class, 'ts__h1')]")).Text;
             var description = driver.FindElement(By.ClassName("ts__description")).Text;
+
+            Console.WriteLine("Name: {0}", name);
             Console.WriteLine("Description: {0}", description);
-            test.description = description;
+
+            test.Name = name;
+            test.Description = description;
 
             Random rnd = new Random();
 
@@ -58,8 +66,11 @@ namespace TestometrikaParser
             {
                 Console.WriteLine(a.Text);
             }
+
+            GenerateJson();
         }
 
+        public static int counter = 0;
         public static void OutputQuestionData(IWebDriver driver)
         {
             Random rnd = new Random();
@@ -72,24 +83,29 @@ namespace TestometrikaParser
             var answers = answer_list.FindElements(By.ClassName("ts__answer-li"));
 
             Console.WriteLine(q.Text);
-            test.Questions.title = q.Text;
+
+            Answer answer = new Answer();
+            Question questionToJson = new Question();
 
             foreach (var ans in answers)
             {
                 Console.WriteLine(ans.Text);
-                test.Questions.answer.answers.Add(ans.Text);
+                answer.answers.Add(ans.Text);
             }
 
-            Console.WriteLine("Answer Count{0}", answers.Count);
+            questionToJson.answer = answer;
+            questionToJson.title = q.Text;
+
             var rnd_answer = rnd.Next(0, answers.Count);
 
+            test.Questions.QuestionList.Add(counter, questionToJson);
             var myAnswer = answers[rnd_answer];
             var clickableAnswer = myAnswer.FindElement(By.XPath(".//input[@type='radio']"));
             Console.WriteLine("My answer: #{0}, {1}", rnd_answer, myAnswer.Text);
-
+            counter++;
             clickableAnswer.Click();
 
-            GenerateJson();
+            
         }
 
         public static void WaitForQuestion(IWebDriver driver, string numOfQuestion)
