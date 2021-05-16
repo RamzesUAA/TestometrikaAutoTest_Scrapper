@@ -84,17 +84,15 @@ namespace TestometrikaParser
 
             Console.WriteLine(q.Text);
 
-            Answer answer = new Answer();
             Questions questionToJson = new Questions();
 
-            foreach (var ans in answers)
+            for(int i = 0; i < answers.Count; ++i)
             {
-                Console.WriteLine(ans.Text);
-                answer.answers.Add(ans.Text);
+                Console.WriteLine(answers[i].Text);
+                questionToJson.Answer.Add(i, answers[i].Text);
             }
 
-            questionToJson.answer = answer;
-            questionToJson.title = q.Text;
+            questionToJson.Title = q.Text;
 
             var rnd_answer = rnd.Next(0, answers.Count);
 

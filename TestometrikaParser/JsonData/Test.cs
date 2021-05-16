@@ -14,8 +14,10 @@ namespace TestometrikaParser
         public string Description { get; set; }
         [JsonProperty("questions")]
         public Dictionary<int, Questions> Questions { get; set; } = new Dictionary<int, Questions>();
-        [JsonProperty("questions")]
+        [JsonProperty("results")]
         public Dictionary<int, Result> Results { get; set; } = new Dictionary<int, Result>();
+        [JsonProperty("ways")]
+        public List<Way> Ways { get; set; } = new List<Way>();
 
     }
 }
