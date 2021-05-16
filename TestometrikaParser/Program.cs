@@ -85,7 +85,7 @@ namespace TestometrikaParser
             Console.WriteLine(q.Text);
 
             Answer answer = new Answer();
-            Question questionToJson = new Question();
+            Questions questionToJson = new Questions();
 
             foreach (var ans in answers)
             {
@@ -98,7 +98,7 @@ namespace TestometrikaParser
 
             var rnd_answer = rnd.Next(0, answers.Count);
 
-            test.Questions.QuestionList.Add(counter, questionToJson);
+            test.Questions.Add(counter, questionToJson);
             var myAnswer = answers[rnd_answer];
             var clickableAnswer = myAnswer.FindElement(By.XPath(".//input[@type='radio']"));
             Console.WriteLine("My answer: #{0}, {1}", rnd_answer, myAnswer.Text);

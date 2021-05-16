@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
+using TestometrikaParser.JsonData;
 
 namespace TestometrikaParser
 {
@@ -12,6 +13,9 @@ namespace TestometrikaParser
         [JsonProperty("description")]
         public string Description { get; set; }
         [JsonProperty("questions")]
-        public Questions Questions { get; set; } = new Questions();
+        public Dictionary<int, Questions> Questions { get; set; } = new Dictionary<int, Questions>();
+        [JsonProperty("questions")]
+        public Dictionary<int, Result> Results { get; set; } = new Dictionary<int, Result>();
+
     }
 }
