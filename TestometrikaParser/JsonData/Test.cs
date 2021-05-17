@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 using TestometrikaParser.JsonData;
 
@@ -18,6 +16,5 @@ namespace TestometrikaParser
         public Dictionary<int, Result> Results { get; set; } = new Dictionary<int, Result>();
         [JsonProperty("ways")]
         public List<Way> Ways { get; set; } = new List<Way>();
-
     }
 }

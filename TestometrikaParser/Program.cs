@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,26 +9,59 @@ using Newtonsoft.Json;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using SimpleBrowser;
-using SimpleBrowser.WebDriver;
 using TestometrikaParser.JsonData;
 
 namespace TestometrikaParser
 {
     class Program
     {
-        public static List<Test> Tests = new List<Test>();
-        public static Test test = new Test();
-        public static Way Way = new Way();
+        private static Test test;
+        private static Way Way;
+        private static TestScrapper testScrapper = new TestScrapper();
+
+        private static IReadOnlyCollection<IWebElement> GetUrlsFromListOfTest()
+        {
+            ChromeOptions options = new ChromeOptions();
+            options.AddArgument("--headless");
+            IWebDriver driver = new ChromeDriver(options);
+
+            driver.Navigate().GoToUrl("https://testometrika.com/business/?pc=100");
+
+            var resultBody = driver.FindElement(By.XPath("//div[contains(@class, 'ajax-list')]"));
+            var links = resultBody.FindElements(By.XPath(".//a[contains(@class, 'test-list__test ')]"));
+            return links;
+        }
 
         static void Main(string[] args)
         {
-           
-
             Console.OutputEncoding = Encoding.UTF8;
-            IWebDriver driver = new ChromeDriver();
-            driver.Navigate().GoToUrl("https://testometrika.com/personality-and-temper/find-out-your-psychological-age/");
 
+            var links = GetUrlsFromListOfTest();
+
+            foreach (var url in links)
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    Test_Startup(url.GetAttribute("href"));
+                }
+            }
+
+            GenerateJson();
+        }
+
+
+
+        private static void Test_Startup(string testURL)
+        {
+            ChromeOptions options = new ChromeOptions();
+            //options.AddArgument("--headless");
+            IWebDriver driver = new ChromeDriver(options);
+            test = new Test();
+            Way = new Way();
+
+            driver.Navigate().Refresh();
+            driver.Navigate().GoToUrl(testURL);
+            Thread.Sleep(4000);
             var name = driver.FindElement(By.XPath("//h1[contains(@class, 'ts__h1')]")).Text;
             var description = driver.FindElement(By.ClassName("ts__description")).Text;
 
@@ -65,7 +97,7 @@ namespace TestometrikaParser
 
             var answers = resultList.FindElements(By.ClassName("result-stenayn"));
 
-          
+
             var ResultText = "";
 
             foreach (var a in answers)
@@ -97,11 +129,13 @@ namespace TestometrikaParser
 
             Way.ResultId = resultId;
             test.Ways.Add(Way);
+            testScrapper.Tests.Add(test);
 
-            GenerateJson();
+            driver.Close();
+
         }
 
-        public static void OutputQuestionData(IWebDriver driver)
+        private static void OutputQuestionData(IWebDriver driver)
         {
             Random rnd = new Random();
 
@@ -124,7 +158,7 @@ namespace TestometrikaParser
 
             Questions questionToJson = new Questions();
 
-            for(int i = 0; i < answers.Count; ++i)
+            for (int i = 0; i < answers.Count; ++i)
             {
                 Console.WriteLine(answers[i].Text);
                 questionToJson.Answer.Add(i, answers[i].Text);
@@ -147,7 +181,7 @@ namespace TestometrikaParser
             clickableAnswer.Click();
         }
 
-        public static void WaitForQuestion(IWebDriver driver, string numOfQuestion)
+        private static void WaitForQuestion(IWebDriver driver, string numOfQuestion)
         {
             int timeout = 0;
             while (true)
@@ -182,7 +216,7 @@ namespace TestometrikaParser
             }
         }
 
-        public static void WaitForResult(IWebDriver driver)
+        private static void WaitForResult(IWebDriver driver)
         {
             int timeout = 0;
             while (true)
@@ -193,7 +227,7 @@ namespace TestometrikaParser
                         ExpectedConditions.ElementExists(By.XPath("//h2[contains(@class, 'result__h2')]"));
 
                     isExists(driver);
-                    
+
                     break;
                 }
                 catch (Exception e)
@@ -208,15 +242,14 @@ namespace TestometrikaParser
             }
         }
 
-        public static void GenerateJson()
+        private static void GenerateJson()
         {
             var serializer = new JsonSerializer();
             serializer.Formatting = Formatting.Indented;
 
-            string json = JsonConvert.SerializeObject(test);
             using (StreamWriter sw = new StreamWriter("Tests.txt"))
             {
-                serializer.Serialize(sw, test);
+                serializer.Serialize(sw, testScrapper);
             }
         }
     }
