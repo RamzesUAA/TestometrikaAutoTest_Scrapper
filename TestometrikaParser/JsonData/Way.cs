@@ -10,7 +10,7 @@ namespace TestometrikaParser.JsonData
         [JsonProperty("answers_road")]
         public List<AnswerRoad> AnswerRoads { get; set; } = new List<AnswerRoad>();
         [JsonProperty("result")]
-        public string ResultId { get; set; }
+        public int ResultId { get; set; }
     }
 
     public class AnswerRoad
