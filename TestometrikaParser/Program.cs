@@ -64,9 +64,10 @@ namespace TestometrikaParser
             return listOfTests;
         }
 
+        static int first = -1;
+
         static void Main(string[] args)
         {
-
             var tasks = new List<Task>();
             Stopwatch watch = new Stopwatch();
             watch.Start();
@@ -78,6 +79,8 @@ namespace TestometrikaParser
 
             Console.OutputEncoding = Encoding.UTF8;
 
+
+       
             List<string> links = null;
             using (StreamReader file = File.OpenText("TestsLinks.txt"))
             {
@@ -93,17 +96,18 @@ namespace TestometrikaParser
             Console.WriteLine(links.Count);
 
 
-            List<string> testLinks = links.Take(3).ToList();
+            List<string> testLinks = links.Skip(1).Take(1).ToList();
 
 
             foreach (var url in testLinks)
             {
+                Test test = new Test();
+                first = -1;
                 for (int i = 0; i < 2; i++)
                 {
-                    for (int j = 0; j < 1; j++)
+                    for (int j = 0; j < 10; j++)
                     {
-
-                        Task task = new Task(() => Test_Startup(url));
+                        Task task = new Task(() => Test_Startup(url, test));
                         tasks.Add(task);
                         task.Start();
                     }
@@ -123,12 +127,12 @@ namespace TestometrikaParser
 
 
 
-        private static void Test_Startup(Object testURL)
+        private static void Test_Startup(Object testURL, Test test)
         {
             ChromeOptions options;
             //options.AddArgument("--headless");
             IWebDriver driver = null;
-            Test test;
+
             Way way;
 
             try
@@ -138,7 +142,7 @@ namespace TestometrikaParser
                 //options.AddArgument("--headless");
                 driver = new ChromeDriver(ChromeDriverService.CreateDefaultService(), options, TimeSpan.FromMinutes(3));
 
-                test = new Test();
+
                 way = new Way();
 
                 driver.Navigate().Refresh();
@@ -153,7 +157,6 @@ namespace TestometrikaParser
                 test.Name = name;
                 test.Description = description;
 
-                Random rnd = new Random();
 
                 var element = driver.FindElement(By.ClassName("ts__btn-bar"));
                 element.Click();
@@ -242,20 +245,18 @@ namespace TestometrikaParser
 
                 var ResultId = -1;
 
-                var prevTests = testScrapper.Tests.Where(n => n.Name == test.Name);
 
-                foreach (var prevTest in prevTests)
+
+                foreach (var b in test.Results)
                 {
-                    foreach (var b in prevTest.Results)
+                    string str1 = b.Value.Text;
+                    string str2 = ResultText;
+                    if (str1.Equals(str2))
                     {
-                        if (string.Equals(ResultText, b.Value.Text))
-                        {
-                            ResultId = b.Key;
-                            break;
-                        }
+                        ResultId = b.Key;
+                        break;
                     }
                 }
-
 
                 if (ResultId == -1)
                 {
@@ -269,7 +270,11 @@ namespace TestometrikaParser
 
                 way.ResultId = ResultId;
                 test.Ways.Add(way);
-                testScrapper.Tests.Add(test);
+                if (first == -1)
+                {
+                    testScrapper.Tests.Add(test);
+                    first = 0;
+                }
             }
             catch (Exception exception)
             {
@@ -318,7 +323,10 @@ namespace TestometrikaParser
 
             var rnd_answer = rnd.Next(0, answers.Count);
 
-            test.Questions.Add(questionId, questionToJson);
+
+            test.Questions.TryAdd(questionId, questionToJson);
+
+
             var myAnswer = answers[rnd_answer];
             way.AnswerRoads.Add(new AnswerRoad()
             {
