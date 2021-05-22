@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -18,38 +19,11 @@ namespace TestometrikaParser
 {
     class Program
     {
-       
+
         private static TestScrapper testScrapper = new TestScrapper();
 
-        private static IReadOnlyCollection<IWebElement> GetUrlsFromListOfTest()
+        private static List<string> GetUrlsFromListOfTest()
         {
-           
-
-            ChromeOptions options = new ChromeOptions();
-            options.AddArgument("--headless");
-            IWebDriver driver = new ChromeDriver(options);
-
-            driver.Navigate().GoToUrl("https://testometrika.com/health/?pc=30");
-
-            var resultBody = driver.FindElement(By.XPath("//div[contains(@class, 'ajax-list')]"));
-            var links = resultBody.FindElements(By.XPath(".//a[contains(@class, 'test-list__test ')]"));
-            return links;
-        }
-
-        static void Main(string[] args)
-        {
-
-            Stopwatch watch = new Stopwatch();
-            watch.Start();
-
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.File("logFile.log")
-                .CreateLogger();
-
-
-            var tasks = new List<Task>();
-            Console.OutputEncoding = Encoding.UTF8;
-
             List<string> ListOfLinks = new List<string>()
             {
                 "https://testometrika.com/personality-and-temper/?pc=130",
@@ -69,23 +43,74 @@ namespace TestometrikaParser
             };
 
 
-            var links = GetUrlsFromListOfTest();
-
-            List<string> testLinks = new List<string>()
+            ChromeOptions options = new ChromeOptions();
+            //options.AddArgument("--headless");
+            IWebDriver driver = new ChromeDriver(ChromeDriverService.CreateDefaultService(), options, TimeSpan.FromMinutes(3));
+            List<string> listOfTests = new List<string>();
+            foreach (var list in ListOfLinks)
             {
-                "https://testometrika.com/health/how-long-will-you-live/",
-                "https://testometrika.com/woman/are-you-ready-to-lose-weight/"
-            };
+                driver.Navigate().GoToUrl(list);
+                var resultBody = driver.FindElement(By.XPath("//div[contains(@class, 'ajax-list')]"));
+                var links = resultBody.FindElements(By.XPath(".//a[contains(@class, 'test-list__test ')]"));
 
-            for (int i = 0; i < 1; i++)
-            {
-                foreach (var url in links)
+                Thread.Sleep(1000);
+
+                foreach (var hrefElement in links)
                 {
-                    Task task = new Task(() => Test_Startup(url.GetAttribute("href")));
-                    tasks.Add(task);
-                    task.Start();
+                    listOfTests.Add(hrefElement.GetAttribute("href"));
                 }
             }
+
+            return listOfTests;
+        }
+
+        static void Main(string[] args)
+        {
+
+            var tasks = new List<Task>();
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
+
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.File("logFile.log")
+                .CreateLogger();
+
+
+            Console.OutputEncoding = Encoding.UTF8;
+
+            List<string> links = null;
+            using (StreamReader file = File.OpenText("TestsLinks.txt"))
+            {
+                JsonSerializer deserializer = new JsonSerializer();
+                links = (List<string>)deserializer.Deserialize(file, typeof(List<string>));
+            }
+
+            foreach (var l in links)
+            {
+                Console.WriteLine(l);
+            }
+
+            Console.WriteLine(links.Count);
+
+
+            List<string> testLinks = links.Take(3).ToList();
+
+
+            foreach (var url in testLinks)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    for (int j = 0; j < 1; j++)
+                    {
+
+                        Task task = new Task(() => Test_Startup(url));
+                        tasks.Add(task);
+                        task.Start();
+                    }
+                    Task.WaitAll(tasks.ToArray());
+                }
+            }
+
 
             Task.WaitAll(tasks.ToArray());
             GenerateJson();
@@ -96,25 +121,28 @@ namespace TestometrikaParser
             Console.WriteLine("Tasks take " + watch.ElapsedMilliseconds + " milliseconds");
         }
 
-        public static async void Test_StartupAsync(Object testURL)
+
+
+        private static void Test_Startup(Object testURL)
         {
-            await Task.Run(() => Test_Startup((string)testURL));
-        }
-
-
-
-        private  static void Test_Startup(Object testURL)
-        {
-            ChromeOptions options = new ChromeOptions();
+            ChromeOptions options;
             //options.AddArgument("--headless");
-            IWebDriver driver = new ChromeDriver(options);
-            Test test = new Test();
-            Way way = new Way();
+            IWebDriver driver = null;
+            Test test;
+            Way way;
 
             try
             {
+                options = new ChromeOptions();
+                options.AddArgument("no-sandbox");
+                //options.AddArgument("--headless");
+                driver = new ChromeDriver(ChromeDriverService.CreateDefaultService(), options, TimeSpan.FromMinutes(3));
+
+                test = new Test();
+                way = new Way();
+
                 driver.Navigate().Refresh();
-                driver.Navigate().GoToUrl((string) testURL);
+                driver.Navigate().GoToUrl((string)testURL);
                 Thread.Sleep(4000);
                 var name = driver.FindElement(By.XPath("//h1[contains(@class, 'ts__h1')]")).Text;
                 var description = driver.FindElement(By.ClassName("ts__description")).Text;
@@ -132,6 +160,7 @@ namespace TestometrikaParser
 
                 WaitForQuestion(driver, "0");
 
+
                 var countOfTests = driver.FindElement(By.XPath("//h3[contains(@class, 'ts__progress')]")).Text;
                 string regex = "/";
                 var unparsedCountOfTests = Regex.Split(countOfTests, regex);
@@ -145,6 +174,57 @@ namespace TestometrikaParser
 
                 WaitForResult(driver);
 
+
+
+
+
+                // Adding Result Blog
+                var resultBlog = driver.FindElement(By.ClassName("result__description-footer"));
+
+                ResultBlog blog = new ResultBlog();
+
+                var blogTextsCollection = resultBlog.FindElements(By.XPath(".//p"));
+                foreach (var text in blogTextsCollection)
+                {
+                    blog.Text += text.Text;
+                }
+
+
+                var resultBlogLinks = resultBlog.FindElements(By.XPath(".//a[contains(@href, '/blog/')]"));
+
+                foreach (var resultBlogLink in resultBlogLinks)
+                {
+                    blog.ImagesList.Add(resultBlogLink.GetAttribute("href"));
+                }
+
+
+
+                var blogId = "";
+
+
+                foreach (var b in testScrapper.Blogs)
+                {
+                    if (blog.Text == b.Value.Text)
+                    {
+                        blogId = b.Key;
+                        break;
+                    }
+                }
+
+                if (blogId == "")
+                {
+                    blogId = $"blog/{testScrapper.Blogs.Count}";
+                    testScrapper.Blogs.Add(blogId, blog);
+                }
+
+
+
+
+
+
+
+                // Adding results
+
                 var resultBody = driver.FindElement(By.XPath("//div[contains(@class, 'result__body')]"));
 
                 var resultList = resultBody.FindElement(By.ClassName("result__description"));
@@ -156,42 +236,53 @@ namespace TestometrikaParser
 
                 foreach (var a in answers)
                 {
-                    Console.WriteLine(a.Text);
                     ResultText += a.Text;
                 }
 
-                int resultId = -1;
 
-                for (int i = 0; i < test.Results.Count; ++i)
+                var ResultId = -1;
+
+                var prevTests = testScrapper.Tests.Where(n => n.Name == test.Name);
+
+                foreach (var prevTest in prevTests)
                 {
-                    if (ResultText == test.Results[++i].Text)
+                    foreach (var b in prevTest.Results)
                     {
-                        resultId = i;
-                        break;
+                        if (string.Equals(ResultText, b.Value.Text))
+                        {
+                            ResultId = b.Key;
+                            break;
+                        }
                     }
                 }
 
 
-                if (resultId == -1)
+                if (ResultId == -1)
                 {
-                    resultId = test.Results.Count + 1;
-                    test.Results.Add(resultId, new Result()
+                    ResultId = test.Results.Count;
+                    test.Results.Add(ResultId, new Result()
                     {
-                        Text = ResultText
+                        Text = ResultText,
+                        BlogDescription = blogId
                     });
                 }
 
-                way.ResultId = resultId;
+                way.ResultId = ResultId;
                 test.Ways.Add(way);
                 testScrapper.Tests.Add(test);
-
-                driver.Close();
             }
             catch (Exception exception)
             {
-                Log.Information(exception,(string) testURL);
-                driver.Close();
+                Log.Information(exception, (string)testURL);
+                if (driver != null)
+                {
+                    driver.Quit();
+
+                }
+                return;
             }
+
+            driver.Quit();
         }
 
         private static void OutputQuestionData(IWebDriver driver, Test test, Way way)

@@ -9,8 +9,6 @@ namespace TestometrikaParser.JsonData
     {
         [JsonProperty("text")]
         public string Text { get;set; }
-        [JsonProperty("description")]
-        public string Description { get; set; }
         [JsonProperty("blog_description")]
         public string BlogDescription { get; set; }
     }
