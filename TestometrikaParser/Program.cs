@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -64,11 +63,27 @@ namespace TestometrikaParser
             return listOfTests;
         }
 
+        static void Deserializer()
+        {
+            var serializer = new JsonSerializer();
+            serializer.Formatting = Formatting.Indented;
+            using (StreamReader sw = new StreamReader("Tests.txt"))
+            {
+                var json = sw.ReadToEnd();
+                testScrapper = JsonConvert.DeserializeObject<TestScrapper>(json);
+            }
+        }
+
         static int first = -1;
 
         static void Main(string[] args)
         {
-            var tasks = new List<Task>();
+
+            Console.OutputEncoding = Encoding.UTF8;
+
+            Deserializer();
+
+
             Stopwatch watch = new Stopwatch();
             watch.Start();
 
@@ -77,10 +92,6 @@ namespace TestometrikaParser
                 .CreateLogger();
 
 
-            Console.OutputEncoding = Encoding.UTF8;
-
-
-       
             List<string> links = null;
             using (StreamReader file = File.OpenText("TestsLinks.txt"))
             {
@@ -88,41 +99,38 @@ namespace TestometrikaParser
                 links = (List<string>)deserializer.Deserialize(file, typeof(List<string>));
             }
 
-            foreach (var l in links)
-            {
-                Console.WriteLine(l);
-            }
 
-            Console.WriteLine(links.Count);
-
-
-            List<string> testLinks = links.Skip(1).Take(1).ToList();
+            List<string> testLinks = links.Skip(73).Take(200).ToList();
 
 
             foreach (var url in testLinks)
             {
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!! NEW TEST !!!!!!!!!!!!!!!!!!!!!!!!!");
+                var tasks = new List<Task>();
                 Test test = new Test();
                 first = -1;
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 4; i++)
                 {
-                    for (int j = 0; j < 10; j++)
+                    for (int j = 0; j < 5; j++)
                     {
+                        Console.WriteLine("*********** NEW  Run of test ***********");
                         Task task = new Task(() => Test_Startup(url, test));
                         tasks.Add(task);
                         task.Start();
                     }
                     Task.WaitAll(tasks.ToArray());
+                    GenerateJsonForRollBack();
                 }
             }
 
-
-            Task.WaitAll(tasks.ToArray());
             GenerateJson();
 
             watch.Stop();
 
             //Output the milliseconds elapsed to the console.
             Console.WriteLine("Tasks take " + watch.ElapsedMilliseconds + " milliseconds");
+            Console.WriteLine("Tasks take " + TimeSpan.FromMilliseconds(watch.ElapsedMilliseconds).TotalMinutes
+                                            + " milliseconds");
         }
 
 
@@ -140,7 +148,7 @@ namespace TestometrikaParser
                 options = new ChromeOptions();
                 options.AddArgument("no-sandbox");
                 //options.AddArgument("--headless");
-                driver = new ChromeDriver(ChromeDriverService.CreateDefaultService(), options, TimeSpan.FromMinutes(3));
+                driver = new ChromeDriver(ChromeDriverService.CreateDefaultService(), options, TimeSpan.FromMinutes(5));
 
 
                 way = new Way();
@@ -151,8 +159,6 @@ namespace TestometrikaParser
                 var name = driver.FindElement(By.XPath("//h1[contains(@class, 'ts__h1')]")).Text;
                 var description = driver.FindElement(By.ClassName("ts__description")).Text;
 
-                Console.WriteLine("Name: {0}", name);
-                Console.WriteLine("Description: {0}", description);
 
                 test.Name = name;
                 test.Description = description;
@@ -275,19 +281,26 @@ namespace TestometrikaParser
                     testScrapper.Tests.Add(test);
                     first = 0;
                 }
+
+                driver.Close();
+                driver.Quit();
+                driver.Dispose();
             }
             catch (Exception exception)
             {
                 Log.Information(exception, (string)testURL);
                 if (driver != null)
                 {
+                    driver.Close();
                     driver.Quit();
-
+                    driver.Dispose();
+                    return;
                 }
-                return;
-            }
 
-            driver.Quit();
+                driver.Close();
+                driver.Quit();
+                driver.Dispose();
+            }
         }
 
         private static void OutputQuestionData(IWebDriver driver, Test test, Way way)
@@ -309,13 +322,10 @@ namespace TestometrikaParser
 
             var answers = answer_list.FindElements(By.ClassName("ts__answer-li"));
 
-            Console.WriteLine($"Id: {questionId}, Question: {q.Text}");
-
             Questions questionToJson = new Questions();
 
             for (int i = 0; i < answers.Count; ++i)
             {
-                Console.WriteLine(answers[i].Text);
                 questionToJson.Answer.Add(i, answers[i].Text);
             }
 
@@ -335,7 +345,6 @@ namespace TestometrikaParser
             });
 
             var clickableAnswer = myAnswer.FindElement(By.XPath(".//input[@type='radio']"));
-            Console.WriteLine("My answer: #{0}, {1}", rnd_answer, myAnswer.Text);
             clickableAnswer.Click();
         }
 
@@ -411,6 +420,23 @@ namespace TestometrikaParser
             serializer.Formatting = Formatting.Indented;
 
             using (StreamWriter sw = new StreamWriter("Tests.txt"))
+            {
+                serializer.Serialize(sw, testScrapper);
+            }
+        }
+
+        private static void GenerateJsonForRollBack()
+        {
+            Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
+                              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
+                              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
+                              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
+                              "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            var serializer = new JsonSerializer();
+            serializer.Formatting = Formatting.Indented;
+            var testCount = testScrapper.Tests.Count;
+
+            using (StreamWriter sw = new StreamWriter($"RollbackTest{testCount}.txt"))
             {
                 serializer.Serialize(sw, testScrapper);
             }
